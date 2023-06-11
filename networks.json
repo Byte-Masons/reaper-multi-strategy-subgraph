@@ -1,0 +1,12 @@
+{
+    "fantom": {
+        "ReaperVaultERC4626": {
+            "startBlock": 52018745
+        }
+    },
+    "optimism": {
+        "ReaperVaultERC4626": {
+            "startBlock": 97393549
+        }
+    }
+}
