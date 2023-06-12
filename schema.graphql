@@ -73,4 +73,6 @@ type StrategyReportResult @entity {
   apr: BigDecimal!
   "vault APR Snapshot."
   vaultAPR: BigDecimal!
+  "Vault address report is intended for"
+  vault: String!
 }

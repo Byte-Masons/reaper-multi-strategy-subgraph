@@ -94,7 +94,7 @@ export function handleStrategyReported(event: StrategyReported): void {
           '[Strategy] Create report result (latest {} vs current {}) for strategy {}.',
           [strategyReport.id, currentReport.id, strategyId]
         );
-        const reportResult = createStrategyReportResult(currentReport, strategyReport, event);
+        const reportResult = createStrategyReportResult(currentReport, strategyReport, strategy.vault, event);
         strategyReport.results = reportResult.id;
         strategyReport.save();
         updateVaultAPR(strategy.vault);
@@ -130,6 +130,7 @@ function getOrCreateVault(vaultAddress: Address): Vault {
 export function createStrategyReportResult(
   previousReport: StrategyReport,
   currentReport: StrategyReport,
+  vaultAddress: string,
   event: StrategyReported
 ): StrategyReportResult {
   log.info(
@@ -154,6 +155,7 @@ export function createStrategyReportResult(
   strategyReportResult.durationPr = BIGDECIMAL_ZERO;
   strategyReportResult.apr = BIGDECIMAL_ZERO;
   strategyReportResult.vaultAPR = BIGDECIMAL_ZERO;
+  strategyReportResult.vault = vaultAddress;
   //change this to accurately reflect changes in loss in well
   const profit = currentReport.gains.minus(previousReport.gains);
   const loss = currentReport.losses.minus(previousReport.losses);
