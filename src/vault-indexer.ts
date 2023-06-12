@@ -7,6 +7,7 @@ const addStrategyAddresses: Address[] = [
   Address.fromString("0x04C710a1E8a738CDf7cAD3a52Ba77A784C35d8CE"), // super-admin multisig
   Address.fromString("0xe1610bB38Ce95254dD77cbC82F9c1148569B560e"), // goober
   Address.fromString("0x950b0E7FD95a08C9525bC82AaE0A8121cC84143E"), // zokunei
+  Address.fromString("0x6539519E69343535a2aF6583D9BAE3AD74c6A293"), // degenicus
   // ... add other addresses that may call addStrategy on a new or existing vault 
 ];
 
