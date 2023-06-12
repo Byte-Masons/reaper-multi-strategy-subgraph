@@ -2,12 +2,14 @@ import { Address, log, BigInt, ethereum, Bytes, BigDecimal } from "@graphprotoco
 import {
   StrategyAdded,
   StrategyReported,
-  ReaperVaultERC4626
+  ReaperVaultERC4626,
+  Deposit,
+  Withdraw
 } from "../generated/ReaperVaultERC4626/ReaperVaultERC4626"
 import {
   ReaperBaseStrategy as StrategyContract
 } from "../generated/templates/ReaperVaultERC4626/ReaperBaseStrategy"
-import { Vault, Strategy, StrategyReport, StrategyReportResult } from "../generated/schema"
+import { Vault, Strategy, StrategyReport, StrategyReportResult, User } from "../generated/schema"
 
 const BIGINT_ZERO = BigInt.fromI32(0);
 const BIGDECIMAL_ZERO = new BigDecimal(BIGINT_ZERO);
@@ -247,6 +249,39 @@ export function updateVaultAPR(vaultAddress: string): void {
       }
     }
   }
+}
+
+export function handleDeposit (event:Deposit):void {
+  log.info('handleDeposit called', []);
+  const user = getOrCreateUser(event.params.sender);
+  if (user) {
+    log.info('handleDeposit called - user {}, amount {}', [user.id, event.params.assets.toString()]);
+    user.totalDeposits.plus(event.params.assets);
+    user.save();
+  }
+}
+
+export function handleWithdrawal (event:Withdraw):void {
+  log.info('handleWithdrawal called', []);
+  const user = getOrCreateUser(event.params.sender);
+  if (user) {
+    log.info('handleWithdrawal called - user {}, amount {}', [user.id, event.params.assets.toString()]);
+    user.totalWithdrawals.plus(event.params.assets);
+    user.save();
+  }
+}
+
+function getOrCreateUser(walletAddress: Address): User {
+  let id = walletAddress.toHexString();
+  log.info('getOrCreateUser {}', [id]);
+  let userEntity = User.load(id);
+  if (userEntity == null) {
+    userEntity = new User(id);
+    userEntity.totalDeposits = BIGINT_ZERO;
+    userEntity.totalWithdrawals = BIGINT_ZERO;
+    userEntity.save();
+  }
+  return userEntity;
 }
 
 // make a derived ID from transaction hash and big number

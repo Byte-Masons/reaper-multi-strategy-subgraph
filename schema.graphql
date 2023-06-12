@@ -76,3 +76,12 @@ type StrategyReportResult @entity {
   "Vault address report is intended for"
   vault: String!
 }
+
+type User @entity {
+  "Wallet address"
+  id: ID!
+  "User's total deposits"
+  totalDeposits: BigInt!
+  "User's total withdrawals"
+  totalWithdrawals: BigInt!
+}
