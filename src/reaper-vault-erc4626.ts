@@ -2,12 +2,14 @@ import { Address, log, BigInt, ethereum, Bytes, BigDecimal } from "@graphprotoco
 import {
   StrategyAdded,
   StrategyReported,
-  ReaperVaultERC4626
+  ReaperVaultERC4626,
+  Deposit,
+  Withdraw
 } from "../generated/ReaperVaultERC4626/ReaperVaultERC4626"
 import {
   ReaperBaseStrategy as StrategyContract
 } from "../generated/templates/ReaperVaultERC4626/ReaperBaseStrategy"
-import { Vault, Strategy, StrategyReport, StrategyReportResult } from "../generated/schema"
+import { Vault, Strategy, StrategyReport, StrategyReportResult, User } from "../generated/schema"
 
 const BIGINT_ZERO = BigInt.fromI32(0);
 const BIGDECIMAL_ZERO = new BigDecimal(BIGINT_ZERO);
@@ -94,7 +96,7 @@ export function handleStrategyReported(event: StrategyReported): void {
           '[Strategy] Create report result (latest {} vs current {}) for strategy {}.',
           [strategyReport.id, currentReport.id, strategyId]
         );
-        const reportResult = createStrategyReportResult(currentReport, strategyReport, event);
+        const reportResult = createStrategyReportResult(currentReport, strategyReport, strategy.vault, event);
         strategyReport.results = reportResult.id;
         strategyReport.save();
         updateVaultAPR(strategy.vault);
@@ -130,6 +132,7 @@ function getOrCreateVault(vaultAddress: Address): Vault {
 export function createStrategyReportResult(
   previousReport: StrategyReport,
   currentReport: StrategyReport,
+  vaultAddress: string,
   event: StrategyReported
 ): StrategyReportResult {
   log.info(
@@ -154,6 +157,7 @@ export function createStrategyReportResult(
   strategyReportResult.durationPr = BIGDECIMAL_ZERO;
   strategyReportResult.apr = BIGDECIMAL_ZERO;
   strategyReportResult.vaultAPR = BIGDECIMAL_ZERO;
+  strategyReportResult.vault = vaultAddress;
   //change this to accurately reflect changes in loss in well
   const profit = currentReport.gains.minus(previousReport.gains);
   const loss = currentReport.losses.minus(previousReport.losses);
@@ -245,6 +249,39 @@ export function updateVaultAPR(vaultAddress: string): void {
       }
     }
   }
+}
+
+export function handleDeposit (event:Deposit):void {
+  log.info('handleDeposit called', []);
+  const user = getOrCreateUser(event.params.sender);
+  if (user) {
+    log.info('handleDeposit called - user {}, amount {}', [user.id, event.params.assets.toString()]);
+    user.totalDeposits.plus(event.params.assets);
+    user.save();
+  }
+}
+
+export function handleWithdrawal (event:Withdraw):void {
+  log.info('handleWithdrawal called', []);
+  const user = getOrCreateUser(event.params.sender);
+  if (user) {
+    log.info('handleWithdrawal called - user {}, amount {}', [user.id, event.params.assets.toString()]);
+    user.totalWithdrawals.plus(event.params.assets);
+    user.save();
+  }
+}
+
+function getOrCreateUser(walletAddress: Address): User {
+  let id = walletAddress.toHexString();
+  log.info('getOrCreateUser {}', [id]);
+  let userEntity = User.load(id);
+  if (userEntity == null) {
+    userEntity = new User(id);
+    userEntity.totalDeposits = BIGINT_ZERO;
+    userEntity.totalWithdrawals = BIGINT_ZERO;
+    userEntity.save();
+  }
+  return userEntity;
 }
 
 // make a derived ID from transaction hash and big number
