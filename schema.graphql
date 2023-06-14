@@ -78,7 +78,7 @@ type StrategyReportResult @entity {
 }
 
 type User @entity {
-  "Wallet address"
+  "Combination of wallet address and vault address"
   id: ID!
   "User's total deposits"
   totalDeposits: BigInt!
