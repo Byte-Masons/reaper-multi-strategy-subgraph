@@ -253,26 +253,26 @@ export function updateVaultAPR(vaultAddress: string): void {
 
 export function handleDeposit (event:Deposit):void {
   log.info('handleDeposit called', []);
-  const user = getOrCreateUser(event.params.sender);
+  const user = getOrCreateUser(event.params.sender, event.address);
   if (user) {
     log.info('handleDeposit called - user {}, amount {}', [user.id, event.params.assets.toString()]);
-    user.totalDeposits.plus(event.params.assets);
+    user.totalDeposits = user.totalDeposits.plus(event.params.assets);
     user.save();
   }
 }
 
 export function handleWithdrawal (event:Withdraw):void {
   log.info('handleWithdrawal called', []);
-  const user = getOrCreateUser(event.params.sender);
+  const user = getOrCreateUser(event.params.sender, event.address);
   if (user) {
     log.info('handleWithdrawal called - user {}, amount {}', [user.id, event.params.assets.toString()]);
-    user.totalWithdrawals.plus(event.params.assets);
+    user.totalWithdrawals = user.totalWithdrawals.plus(event.params.assets);
     user.save();
   }
 }
 
-function getOrCreateUser(walletAddress: Address): User {
-  let id = walletAddress.toHexString();
+function getOrCreateUser(walletAddress: Address, vaultAddress:Address): User {
+  let id = `${walletAddress.toHexString()}-${vaultAddress.toHexString()}`;
   log.info('getOrCreateUser {}', [id]);
   let userEntity = User.load(id);
   if (userEntity == null) {
