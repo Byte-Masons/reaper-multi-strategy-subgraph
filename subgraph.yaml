@@ -6,10 +6,10 @@ schema:
 dataSources:
   - kind: ethereum/contract
     name: ReaperVaultERC4626
-    network: fantom
+    network: arbitrum-one
     source:
       abi: ReaperVaultERC4626
-      startBlock: 52018745
+      startBlock: 103508051
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -26,7 +26,7 @@ dataSources:
 templates:
   - kind: ethereum/contract
     name: ReaperVaultERC4626
-    network: fantom
+    network: arbitrum-one
     source:
       abi: ReaperVaultERC4626
     mapping:
@@ -46,7 +46,8 @@ templates:
       eventHandlers:
         - event: StrategyAdded(indexed address,uint256,uint256)
           handler: handleStrategyAdded
-        - event: StrategyReported(indexed address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)
+        - event: StrategyReported(indexed
+            address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)
           handler: handleStrategyReported
         - event: Deposit(indexed address,indexed address,uint256,uint256)
           handler: handleDeposit
