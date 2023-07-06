@@ -4,15 +4,17 @@
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-    "auth": "graph auth --product hosted-service {put token here}",
+    "auth": "graph auth --product hosted-service 79ef122c09cc40cc9e54fc65ce3c5781",
     "deploy": "graph deploy --node https://api.thegraph.com/deploy/ byte-masons/multi-strategy-vaults-fantom",
     "create-local": "graph create --node http://localhost:8020/ byte-masons/multi-strategy-vaults-fantom",
     "remove-local": "graph remove --node http://localhost:8020/ byte-masons/multi-strategy-vaults-fantom",
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 byte-masons/multi-strategy-vaults-fantom",
     "build-optimism": "graph build --network optimism",
     "build-fantom": "graph build --network fantom",
+    "build-arbitrum": "graph build --network arbitrum-one",
     "deploy-optimism": "graph build --network optimism && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-optimism --network optimism",
-    "deploy-fantom": "graph build --network fantom && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-fantom --network fantom"
+    "deploy-fantom": "graph build --network fantom && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-fantom --network fantom",
+    "deploy-arbitrum": "graph build --network arbitrum-one && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-arbitrum --network arbitrum-one"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.30.0",
