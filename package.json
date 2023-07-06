@@ -11,8 +11,10 @@
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 byte-masons/multi-strategy-vaults-fantom",
     "build-optimism": "graph build --network optimism",
     "build-fantom": "graph build --network fantom",
+    "build-arbitrum": "graph build --network arbitrum-one",
     "deploy-optimism": "graph build --network optimism && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-optimism --network optimism",
-    "deploy-fantom": "graph build --network fantom && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-fantom --network fantom"
+    "deploy-fantom": "graph build --network fantom && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-fantom --network fantom",
+    "deploy-arbitrum": "graph build --network arbitrum-one && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-arbitrum --network arbitrum-one"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.30.0",

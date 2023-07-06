@@ -8,5 +8,10 @@
         "ReaperVaultERC4626": {
             "startBlock": 97393549
         }
+    },
+    "arbitrum-one": {
+        "ReaperVaultERC4626": {
+            "startBlock": 103508051
+        }
     }
 }
