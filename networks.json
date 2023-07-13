@@ -6,7 +6,7 @@
     },
     "optimism": {
         "ReaperVaultERC4626": {
-            "startBlock": 97393549
+            "startBlock": 84419622 
         }
     },
     "arbitrum-one": {
