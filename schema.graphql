@@ -75,6 +75,8 @@ type StrategyReportResult @entity {
   vaultAPR: BigDecimal!
   "Vault address report is intended for"
   vault: String!
+  "Curent price per full share at the time of this report"
+  pricePerFullShare: BigInt!
 }
 
 type User @entity {

@@ -158,6 +158,7 @@ export function createStrategyReportResult(
   strategyReportResult.apr = BIGDECIMAL_ZERO;
   strategyReportResult.vaultAPR = BIGDECIMAL_ZERO;
   strategyReportResult.vault = vaultAddress;
+  strategyReportResult.pricePerFullShare = BIGINT_ZERO;
   //change this to accurately reflect changes in loss in well
   const profit = currentReport.gains.minus(previousReport.gains);
   const loss = currentReport.losses.minus(previousReport.losses);
@@ -193,7 +194,8 @@ export function createStrategyReportResult(
       ]
     );
     strategyReportResult.apr = apr;
-    
+    let vaultContract = ReaperVaultERC4626.bind(Address.fromString(vaultAddress));
+    strategyReportResult.pricePerFullShare = vaultContract.getPricePerFullShare();
   }
   strategyReportResult.save();
   return strategyReportResult;
