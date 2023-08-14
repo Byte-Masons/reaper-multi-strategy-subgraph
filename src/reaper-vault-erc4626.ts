@@ -126,7 +126,9 @@ function getOrCreateVault(vaultAddress: Address, timestamp: BigInt): Vault {
     vaultEntity = new Vault(id);
     vaultEntity.nrOfStrategies = BigInt.fromI32(1);
     vaultEntity.lastUpdated = timestamp;
-    vaultEntity.pricePerFullShare = BIGINT_ONE;
+    const vaultContract = ReaperVaultERC4626.bind(Address.fromString(vaultAddress.toHexString()));
+    const ppFullShare = vaultContract.getPricePerFullShare();
+    vaultEntity.pricePerFullShare = ppFullShare;
   } else {
     vaultEntity.nrOfStrategies = vaultEntity.nrOfStrategies.plus(BigInt.fromI32(1));
   }
