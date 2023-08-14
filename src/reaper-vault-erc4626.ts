@@ -157,7 +157,7 @@ export function createStrategyReportResult(
   strategyReportResult.startTimestamp = previousReport.timestamp;
   strategyReportResult.endTimestamp = currentReport.timestamp;
   strategyReportResult.duration = currentReport.timestamp.minus(previousReport.timestamp);
-  strategyReportResult.durationPr = BIGINT_ZERO;
+  strategyReportResult.durationPr = BIGDECIMAL_ZERO;
   strategyReportResult.apr = BIGINT_ZERO;
   strategyReportResult.vault = vaultAddress;
   //change this to accurately reflect changes in loss in well
@@ -177,7 +177,8 @@ export function createStrategyReportResult(
   if (!previousReport.allocated.isZero() && !strategyReportResult.duration.equals(BIGINT_ZERO)) {
     let pnlOverAYear = pnl.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT)
     let allocatedTimesDuration = previousReport.allocated.times(strategyReportResult.duration)
-    let profitOverTotalDebt = pnl.div(previousReport.allocated);
+    let profitOverTotalDebt = pnl.toBigDecimal()
+      .div(previousReport.allocated.toBigDecimal());
     strategyReportResult.durationPr = profitOverTotalDebt;
     let apr = pnlOverAYear.div(allocatedTimesDuration);
 
