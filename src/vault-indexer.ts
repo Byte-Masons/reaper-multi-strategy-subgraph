@@ -1,6 +1,6 @@
-import { Address } from "@graphprotocol/graph-ts"
-import { StrategyAdded } from "../generated/ReaperVaultERC4626/ReaperVaultERC4626"
-import { Vault } from "../generated/schema"
+import { Address } from "@graphprotocol/graph-ts";
+import { StrategyAdded } from "../generated/ReaperVaultERC4626/ReaperVaultERC4626";
+import { Vault } from "../generated/schema";
 import { ReaperVaultERC4626 } from "../generated/templates";
 
 const addStrategyAddresses: Address[] = [
@@ -28,7 +28,7 @@ export function handleStrategyAdded(event: StrategyAdded): void {
   // In that case, we don't do anything here since the vault data source would trigger its own
   // event handlers.
   const vaultAddress = event.address.toHexString();
-  let vaultEntity = Vault.load(vaultAddress);
+  const vaultEntity = Vault.load(vaultAddress);
   if (vaultEntity == null) {
     ReaperVaultERC4626.create(event.address);
   }
