@@ -9,11 +9,14 @@ import {
 import {
   ReaperBaseStrategy as StrategyContract
 } from "../generated/templates/ReaperVaultERC4626/ReaperBaseStrategy"
-import { Vault, Strategy, StrategyReport, StrategyReportResult, User } from "../generated/schema"
+import { Vault, Strategy, StrategyReport, StrategyReportResult, User, VaultAPRReport } from "../generated/schema"
 
 const BIGINT_ZERO = BigInt.fromI32(0);
+const BIGINT_ONE = BigInt.fromI32(1);
 const BIGDECIMAL_ZERO = new BigDecimal(BIGINT_ZERO);
 const MS_PER_DAY = new BigDecimal(BigInt.fromI32(24 * 60 * 60 * 1000));
+const BIGINT_SEC_PER_DAY = BigInt.fromI32(24 * 60 * 60);
+const BIGINT_SEC_PER_YEAR = BigInt.fromI32(24 * 60 * 60 * 365);
 const DAYS_PER_YEAR = new BigDecimal(BigInt.fromI32(365));
 const BPS_UNIT = BigInt.fromI32(10000);
 
@@ -26,7 +29,7 @@ export function handleStrategyAdded(event: StrategyAdded): void {
     strategyId,
     vaultAddress.toHexString()
   ]);
-  getOrCreateVault(vaultAddress);
+  getOrCreateVault(vaultAddress, event.block.timestamp);
   const strategy = new Strategy(strategyId);
   strategy.vault = vaultAddress.toHexString();
   strategy.save();
@@ -78,7 +81,7 @@ export function handleStrategyReported(event: StrategyReported): void {
         strategyReport.loss = loss;
         strategyReport.debtPaid = debtPaid;
         strategyReport.strategy = strategy.id;
-        strategyReport.timestamp = getTimestampInMillis(event.block);
+        strategyReport.timestamp = getTimestampFromBlock(event.block);
         strategyReport.gains = gains;
         strategyReport.losses = losses;
         strategyReport.allocated = allocated;
@@ -99,7 +102,7 @@ export function handleStrategyReported(event: StrategyReported): void {
         const reportResult = createStrategyReportResult(currentReport, strategyReport, strategy.vault, event);
         strategyReport.results = reportResult.id;
         strategyReport.save();
-        updateVaultAPR(strategy.vault);
+        updateVaultAPR(strategy.vault, getTimestampFromBlock(event.block));
       }
     } else {
       log.info(
@@ -115,13 +118,15 @@ export function handleStrategyReported(event: StrategyReported): void {
   }
 }
 
-function getOrCreateVault(vaultAddress: Address): Vault {
+function getOrCreateVault(vaultAddress: Address, timestamp: BigInt): Vault {
   let id = vaultAddress.toHexString();
   log.info('getOrCreateVault {}', [id]);
   let vaultEntity = Vault.load(id);
   if (vaultEntity == null) {
     vaultEntity = new Vault(id);
     vaultEntity.nrOfStrategies = BigInt.fromI32(1);
+    vaultEntity.lastUpdated = timestamp;
+    vaultEntity.pricePerFullShare = BIGINT_ONE;
   } else {
     vaultEntity.nrOfStrategies = vaultEntity.nrOfStrategies.plus(BigInt.fromI32(1));
   }
@@ -151,104 +156,60 @@ export function createStrategyReportResult(
   strategyReportResult.previousReport = previousReport.id;
   strategyReportResult.startTimestamp = previousReport.timestamp;
   strategyReportResult.endTimestamp = currentReport.timestamp;
-  strategyReportResult.duration = currentReport.timestamp
-    .toBigDecimal()
-    .minus(previousReport.timestamp.toBigDecimal());
-  strategyReportResult.durationPr = BIGDECIMAL_ZERO;
-  strategyReportResult.apr = BIGDECIMAL_ZERO;
-  strategyReportResult.vaultAPR = BIGDECIMAL_ZERO;
+  strategyReportResult.duration = currentReport.timestamp.minus(previousReport.timestamp);
+  strategyReportResult.durationPr = BIGINT_ZERO;
+  strategyReportResult.apr = BIGINT_ZERO;
   strategyReportResult.vault = vaultAddress;
-  strategyReportResult.pricePerFullShare = BIGINT_ZERO;
   //change this to accurately reflect changes in loss in well
-  const profit = currentReport.gains.minus(previousReport.gains);
-  const loss = currentReport.losses.minus(previousReport.losses);
+  const profit = currentReport.gain;
+  const loss = currentReport.loss;
   const pnl = profit.minus(loss);
-  const msInDays = strategyReportResult.duration.div(MS_PER_DAY);
   log.info(
-    '[StrategyReportResult] Report Result - Start / End: {} / {} - Duration: {} (days {}) - Profit: {}',
+    '[StrategyReportResult] Report Result - Start / End: {} / {} - Duration: {} - Profit: {}',
     [
       strategyReportResult.startTimestamp.toString(),
       strategyReportResult.endTimestamp.toString(),
       strategyReportResult.duration.toString(),
-      msInDays.toString(),
       pnl.toString()
     ]
   );
 
-  if (!previousReport.allocated.isZero() && !msInDays.equals(BIGDECIMAL_ZERO)) {
-    let profitOverTotalDebt = pnl
-      .toBigDecimal()
-      .div(previousReport.allocated.toBigDecimal());
+  if (!previousReport.allocated.isZero() && !strategyReportResult.duration.equals(BIGINT_ZERO)) {
+    let pnlOverAYear = pnl.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT)
+    let allocatedTimesDuration = previousReport.allocated.times(strategyReportResult.duration)
+    let profitOverTotalDebt = pnl.div(previousReport.allocated);
     strategyReportResult.durationPr = profitOverTotalDebt;
-    let yearOverDuration = DAYS_PER_YEAR.div(msInDays);
-    let apr = profitOverTotalDebt.times(yearOverDuration);
+    let apr = pnlOverAYear.div(allocatedTimesDuration);
 
     log.info(
-      '[StrategyReportResult] Report Result - Duration: {} ms / {} days - Duration (Year): {} - Profit / Total Debt: {} / APR: {}',
+      '[StrategyReportResult] Report Result - Duration: {} sec - Profit / Total Debt: {} / APR: {}',
       [
         strategyReportResult.duration.toString(),
-        msInDays.toString(),
-        yearOverDuration.toString(),
         profitOverTotalDebt.toString(),
         apr.toString(),
       ]
     );
     strategyReportResult.apr = apr;
-    let vaultContract = ReaperVaultERC4626.bind(Address.fromString(vaultAddress));
-    strategyReportResult.pricePerFullShare = vaultContract.getPricePerFullShare();
   }
   strategyReportResult.save();
   return strategyReportResult;
 }
 
-export function updateVaultAPR(vaultAddress: string): void {
+export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
   log.info('updateVaultAPR - vaultAddress: {}', [vaultAddress]);
   let vaultContract = ReaperVaultERC4626.bind(Address.fromString(vaultAddress));
   let vaultEntity = Vault.load(vaultAddress);
   if (vaultEntity) {
-    const nrOfStrategies = vaultEntity.nrOfStrategies.toI32();
-    log.info('updateVaultAPR - nrOfStrategies: {}', [nrOfStrategies.toString()]);
-    let vaultAPR = new BigDecimal(BIGINT_ZERO);
-    for (let index = 0; index < nrOfStrategies; index++) {
-      log.info('updateVaultAPR - entered for loop', []);
-      const strategyAddress = vaultContract.withdrawalQueue(BigInt.fromI32(index));
-      log.info('updateVaultAPR - strategyAddress.toHexString(): {}', [strategyAddress.toHexString()]);
-      const strategy = Strategy.load(strategyAddress.toHexString());
-      
-      if (strategy) {
-        log.info('updateVaultAPR - strategy is defined', []);
-        const strategyParams = vaultContract.strategies(strategyAddress);
-        const allocation = strategyParams.getAllocBPS();
-        log.info('updateVaultAPR - allocation: {}', [allocation.toString()]);
-        const reportId = strategy.latestReport;
-        if (reportId) {
-          log.info('updateVaultAPR - reportId: {}', [reportId as string]);
-          const report = StrategyReport.load(reportId);
-          if (report) {
-            log.info('updateVaultAPR - report is defined', []);
-            const reportResultsId = report.results;
-            if (reportResultsId) {
-              log.info('updateVaultAPR - reportResultsId: {}', [reportResultsId]);
-              const reportResult = StrategyReportResult.load(reportResultsId);
-              if (reportResult) {
-                log.info('updateVaultAPR - reportResult is defined', []);
-                const strategyAPRContribution = reportResult.apr.times(new BigDecimal(allocation)).div(new BigDecimal(BPS_UNIT));
-                log.info('updateVaultAPR - strategyAPRContribution: {}', [strategyAPRContribution.toString()]);
-                vaultAPR = vaultAPR.plus(strategyAPRContribution);
-                reportResult.vaultAPR = vaultAPR;
-                reportResult.save();
-              }
-            }
-          }
-        }
-      }
-      const vault = Vault.load(vaultAddress);
-      if (vault) {
-        log.info('updateVaultAPR - vault is defined', []);
-        vault.apr = vaultAPR;
-        vault.save();
-        log.info('updateVaultAPR - vault saved', []);
-      }
+    const aprLastUpdated = vaultEntity.lastUpdated;
+    if (checkIfTimePastXSeconds(aprLastUpdated, timestamp, BIGINT_SEC_PER_DAY)) {
+      const previousPPFullShare = vaultEntity.pricePerFullShare;
+      const currentPPFullShare = vaultContract.getPricePerFullShare();
+      const apr = calculateAPRUsingPPFullShare(previousPPFullShare, currentPPFullShare, aprLastUpdated, timestamp);
+      vaultEntity.apr = apr;
+      vaultEntity.pricePerFullShare = currentPPFullShare;
+      vaultEntity.lastUpdated = timestamp;
+      createVaultAPRReport(vaultAddress, apr, currentPPFullShare, timestamp);
+      vaultEntity.save();
     }
   }
 }
@@ -295,6 +256,45 @@ export function buildIdFromEvent(event: ethereum.Event): string {
   return buildId(event.transaction.hash, event.logIndex);
 }
 
-export function getTimestampInMillis(block: ethereum.Block): BigInt {
-  return block.timestamp.times(BigInt.fromI32(1000));
+export function getTimestampFromBlock(block: ethereum.Block): BigInt {
+  return block.timestamp;
+}
+
+function checkIfTimePastXSeconds (startTimestamp:BigInt, endTimestamp:BigInt, milestone:BigInt): boolean {
+  const duration = endTimestamp.minus(startTimestamp);
+  log.info('Duration = {} : MILESTONE = {}', [duration.toString(), milestone.toString()])
+  if (duration.gt(milestone)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function calculateAPRUsingPPFullShare (previousPPFullShare: BigInt, currentPPFullShare: BigInt, previousTimestamp: BigInt, currentTimestamp: BigInt):BigInt {
+  let increasing = true;
+  if (currentPPFullShare.lt(previousPPFullShare)) {
+    increasing = false;
+  }
+  let unsignedSharePriceChange = BIGINT_ZERO;
+  if (increasing) {
+    unsignedSharePriceChange = currentPPFullShare.minus(previousPPFullShare);
+  } else {
+    unsignedSharePriceChange = previousPPFullShare.minus(currentPPFullShare);
+  }
+  let priceChangeOverAYear = unsignedSharePriceChange.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT);
+  let duration = currentTimestamp.minus(previousTimestamp);
+  const startPPFullShareTimesDuration = previousPPFullShare.times(duration);
+  let apr = priceChangeOverAYear.div(startPPFullShareTimesDuration);
+  return apr.abs();
+};
+
+function createVaultAPRReport (vaultAddress:string, apr:BigInt, pricePerFullShare:BigInt, timestamp:BigInt):void {
+  const id = `${vaultAddress}-${timestamp}`;
+  let vaultAPRReport = new VaultAPRReport(id);
+  vaultAPRReport.vault = vaultAddress;
+  vaultAPRReport.apr = apr;
+  vaultAPRReport.pricePerFullShare = pricePerFullShare;
+  vaultAPRReport.timestamp = timestamp;
+  vaultAPRReport.save();
+  return;
 }
