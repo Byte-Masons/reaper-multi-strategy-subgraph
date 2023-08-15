@@ -1,4 +1,4 @@
-import { Address, log, BigInt, ethereum, Bytes, BigDecimal } from "@graphprotocol/graph-ts";
+import { Address, log, BigInt, ethereum, Bytes } from "@graphprotocol/graph-ts";
 import {
   StrategyAdded,
   StrategyReported,
@@ -9,10 +9,11 @@ import {
 import {
   ReaperBaseStrategy as StrategyContract,
 } from "../generated/templates/ReaperVaultERC4626/ReaperBaseStrategy";
-import { Vault, Strategy, StrategyReport, StrategyReportResult, User, VaultAPRReport } from "../generated/schema";
+import {
+  Vault, Strategy, StrategyReport, StrategyReportResult, User, VaultAPRReport,
+} from "../generated/schema";
 
-const BIGINT_ZERO = BigInt.fromI32(0);
-const BIGDECIMAL_ZERO = new BigDecimal(BIGINT_ZERO);
+const ZERO = BigInt.zero();
 const BIGINT_SEC_PER_DAY = BigInt.fromI32(24 * 60 * 60);
 const BIGINT_SEC_PER_YEAR = BigInt.fromI32(24 * 60 * 60 * 365);
 const BPS_UNIT = BigInt.fromI32(10000);
@@ -33,11 +34,19 @@ export function handleStrategyAdded(event: StrategyAdded): void {
 }
 
 export function handleStrategyReported(event: StrategyReported): void {
-
   log.info("handleStrategyReported called", []);
 
   const params = event.params;
   const strategyId = params.strategy.toHexString();
+  const strategy = Strategy.load(strategyId);
+  if (strategy == null) {
+    log.warning(
+      "[Strategy] Failed to load strategy {} while handling StrategyReport",
+      [strategyId]
+    );
+    return;
+  }
+
   const gain = params.gain;
   const loss = params.loss;
   const debtPaid = params.debtPaid;
@@ -59,59 +68,48 @@ export function handleStrategyReported(event: StrategyReported): void {
     allocBPS.toString(),
   ]);
 
-  const strategy = Strategy.load(strategyId);
-  if (strategy !== null) {
-    const currentReportId = strategy.latestReport;
-    log.info(
-      "[Strategy] Getting current report {} for strategy {}.",
-      [currentReportId ? currentReportId : "null", strategy.id]
-    );
-    const strategyReportId = buildIdFromEvent(event);
-    let strategyReport = StrategyReport.load(strategyReportId);
-    if (strategyReport === null) {
+  const lastReportId = strategy.latestReport;
+  log.info(
+    "[Strategy] Getting last report {} for strategy {}.",
+    [lastReportId ? lastReportId : "null", strategy.id]
+  );
+
+  const strategyReportId = buildIdFromEvent(event);
+  const strategyReport = new StrategyReport(strategyReportId);
+  strategyReport.gain = gain;
+  strategyReport.loss = loss;
+  strategyReport.debtPaid = debtPaid;
+  strategyReport.strategy = strategy.id;
+  strategyReport.timestamp = getTimestampFromBlock(event.block);
+  strategyReport.gains = gains;
+  strategyReport.losses = losses;
+  strategyReport.allocated = allocated;
+  strategyReport.allocationAdded = allocationAdded;
+  strategyReport.allocBPS = allocBPS;
+  strategyReport.save();
+
+  strategy.latestReport = strategyReport.id;
+  strategy.save();
+
+  // Getting last report to compare to the new one and create a new report result.
+  if (lastReportId !== null) {
+    const lastReport = StrategyReport.load(lastReportId);
+    if (lastReport !== null) {
       log.info(
-        "strategyReport === null",
-        []
+        "[Strategy] Create report result (new {} vs last {}) for strategy {}.",
+        [strategyReport.id, lastReport.id, strategyId]
       );
-      strategyReport = new StrategyReport(strategyReportId);
-      strategyReport.gain = gain;
-      strategyReport.loss = loss;
-      strategyReport.debtPaid = debtPaid;
-      strategyReport.strategy = strategy.id;
-      strategyReport.timestamp = getTimestampFromBlock(event.block);
-      strategyReport.gains = gains;
-      strategyReport.losses = losses;
-      strategyReport.allocated = allocated;
-      strategyReport.allocationAdded = allocationAdded;
-      strategyReport.allocBPS = allocBPS;
+
+      const reportResult =
+        createStrategyReportResult(lastReport, strategyReport, strategy.vault, event);
+      strategyReport.results = reportResult.id;
       strategyReport.save();
-    }
-    strategy.latestReport = strategyReport.id;
-    strategy.save();
-    // Getting latest report to compare to the new one and create a new report result.
-    if (currentReportId !== null) {
-      const currentReport = StrategyReport.load(currentReportId);
-      if (currentReport !== null) {
-        log.info(
-          "[Strategy] Create report result (latest {} vs current {}) for strategy {}.",
-          [strategyReport.id, currentReport.id, strategyId]
-        );
-        const reportResult =
-          createStrategyReportResult(currentReport, strategyReport, strategy.vault, event);
-        strategyReport.results = reportResult.id;
-        strategyReport.save();
-        updateVaultAPR(strategy.vault, getTimestampFromBlock(event.block));
-      }
-    } else {
-      log.info(
-        "[Strategy] Report result NOT created. Only one report created {} for strategy {}.",
-        [strategyReport.id, strategyId]
-      );
+      updateVaultAPR(strategy.vault, getTimestampFromBlock(event.block));
     }
   } else {
-    log.warning(
-      "[Strategy] Failed to load strategy {} while handling StrategyReport",
-      [strategyId]
+    log.info(
+      "[Strategy] Report result NOT created. Only one report created {} for strategy {}.",
+      [strategyReport.id, strategyId]
     );
   }
 }
@@ -124,12 +122,16 @@ function getOrCreateVault(vaultAddress: Address, timestamp: BigInt): Vault {
     vaultEntity = new Vault(id);
     vaultEntity.nrOfStrategies = BigInt.fromI32(1);
     vaultEntity.lastUpdated = timestamp;
-    const vaultContract = ReaperVaultERC4626.bind(Address.fromString(vaultAddress.toHexString()));
+
+    const vaultContract = ReaperVaultERC4626.bind(
+      Address.fromString(vaultAddress.toHexString())
+    );
     const ppFullShare = vaultContract.getPricePerFullShare();
     vaultEntity.pricePerFullShare = ppFullShare;
   } else {
     vaultEntity.nrOfStrategies = vaultEntity.nrOfStrategies.plus(BigInt.fromI32(1));
   }
+
   vaultEntity.save();
   return vaultEntity;
 }
@@ -157,10 +159,9 @@ export function createStrategyReportResult(
   strategyReportResult.startTimestamp = previousReport.timestamp;
   strategyReportResult.endTimestamp = currentReport.timestamp;
   strategyReportResult.duration = currentReport.timestamp.minus(previousReport.timestamp);
-  strategyReportResult.durationPr = BIGDECIMAL_ZERO;
-  strategyReportResult.apr = BIGINT_ZERO;
+  strategyReportResult.apr = ZERO;
   strategyReportResult.vault = vaultAddress;
-  //change this to accurately reflect changes in loss in well
+
   const profit = currentReport.gain;
   const loss = currentReport.loss;
   const pnl = profit.minus(loss);
@@ -174,24 +175,31 @@ export function createStrategyReportResult(
     ]
   );
 
-  if (!previousReport.allocated.isZero() && !strategyReportResult.duration.equals(BIGINT_ZERO)) {
-    const pnlOverAYear = pnl.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT);
-    const allocatedTimesDuration = previousReport.allocated.times(strategyReportResult.duration);
-    const profitOverTotalDebt = pnl.toBigDecimal()
-      .div(previousReport.allocated.toBigDecimal());
-    strategyReportResult.durationPr = profitOverTotalDebt;
-    const apr = pnlOverAYear.div(allocatedTimesDuration);
+  if (
+    previousReport.allocated.gt(ZERO) &&
+    strategyReportResult.duration.gt(ZERO)
+  ) {
+    // duration -> pnl
+    // => 1s -> (pnl/duration)
+    // => one year -> (pnl/duration) * (one year)
+    // => apr = (pnl/duration) * (one year) / principal * unit multiplier
+    // to divide last,
+    // numerator = pnl * one year * unit multiplier
+    // denominator = duration * principal
+    const numerator = pnl.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT);
+    const denomintator = previousReport.allocated.times(strategyReportResult.duration);
+    const apr = numerator.div(denomintator);
 
     log.info(
-      "[StrategyReportResult] Report Result - Duration: {} sec - Profit / Total Debt: {} / APR: {}",
+      "[StrategyReportResult] Report Result - Duration: {} sec - APR: {}",
       [
         strategyReportResult.duration.toString(),
-        profitOverTotalDebt.toString(),
         apr.toString(),
       ]
     );
     strategyReportResult.apr = apr;
   }
+
   strategyReportResult.save();
   return strategyReportResult;
 }
@@ -211,6 +219,7 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
         aprLastUpdated,
         timestamp,
       );
+
       vaultEntity.apr = apr;
       vaultEntity.pricePerFullShare = currentPPFullShare;
       vaultEntity.lastUpdated = timestamp;
@@ -246,8 +255,8 @@ function getOrCreateUser(walletAddress: Address, vaultAddress: Address): User {
   let userEntity = User.load(id);
   if (userEntity == null) {
     userEntity = new User(id);
-    userEntity.totalDeposits = BIGINT_ZERO;
-    userEntity.totalWithdrawals = BIGINT_ZERO;
+    userEntity.totalDeposits = ZERO;
+    userEntity.totalWithdrawals = ZERO;
     userEntity.save();
   }
   return userEntity;
@@ -286,21 +295,15 @@ function calculateAPRUsingPPFullShare(
   previousTimestamp: BigInt,
   currentTimestamp: BigInt
 ): BigInt {
-  let increasing = true;
-  if (currentPPFullShare.lt(previousPPFullShare)) {
-    increasing = false;
-  }
-  let unsignedSharePriceChange = BIGINT_ZERO;
-  if (increasing) {
-    unsignedSharePriceChange = currentPPFullShare.minus(previousPPFullShare);
-  } else {
-    unsignedSharePriceChange = previousPPFullShare.minus(currentPPFullShare);
-  }
-  const priceChangeOverAYear = unsignedSharePriceChange.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT);
+  // numerator = pnl * one year * unit multiplier
+  // denominator = duration * principal
+  const sharePriceChange = currentPPFullShare.minus(previousPPFullShare);
   const duration = currentTimestamp.minus(previousTimestamp);
-  const startPPFullShareTimesDuration = previousPPFullShare.times(duration);
-  const apr = priceChangeOverAYear.div(startPPFullShareTimesDuration);
-  return apr.abs();
+  const numerator = sharePriceChange.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT);
+  const denominator = previousPPFullShare.times(duration);
+  const apr = numerator.div(denominator);
+
+  return apr;
 }
 
 function createVaultAPRReport(

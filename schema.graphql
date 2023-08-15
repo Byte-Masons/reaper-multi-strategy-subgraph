@@ -80,8 +80,6 @@ type StrategyReportResult @entity {
   endTimestamp: BigInt!
   "The duration (in days) from the previous report."
   duration: BigInt!
-  "Duration percentage rate."
-  durationPr: BigDecimal!
   "Annual Percentage Rate."
   apr: BigInt!
   "Vault address report is intended for"
