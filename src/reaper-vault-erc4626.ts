@@ -14,7 +14,6 @@ import {
 } from "../generated/schema";
 
 const ZERO = BigInt.zero();
-const BIGINT_SEC_PER_DAY = BigInt.fromI32(24 * 60 * 60);
 const BIGINT_SEC_PER_YEAR = BigInt.fromI32(24 * 60 * 60 * 365);
 const BPS_UNIT = BigInt.fromI32(10000);
 
@@ -209,23 +208,39 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
   const vaultContract = ReaperVaultERC4626.bind(Address.fromString(vaultAddress));
   const vaultEntity = Vault.load(vaultAddress);
   if (vaultEntity) {
-    const aprLastUpdated = vaultEntity.lastUpdated;
-    if (checkIfTimePastXSeconds(aprLastUpdated, timestamp, BIGINT_SEC_PER_DAY)) {
-      const previousPPFullShare = vaultEntity.pricePerFullShare;
-      const currentPPFullShare = vaultContract.getPricePerFullShare();
-      const apr = calculateAPRUsingPPFullShare(
-        previousPPFullShare,
-        currentPPFullShare,
-        aprLastUpdated,
-        timestamp,
-      );
+    const numStrats = vaultEntity.nrOfStrategies;
 
-      vaultEntity.apr = apr;
-      vaultEntity.pricePerFullShare = currentPPFullShare;
-      vaultEntity.lastUpdated = timestamp;
-      createVaultAPRReport(vaultAddress, apr, currentPPFullShare, timestamp);
-      vaultEntity.save();
+    // weightedAverageAPR = [(alloc1 * apr1) + (alloc2 * apr2)...] / BPS_UNIT
+    let weightedAverageNumerator = ZERO;
+    for (let i = ZERO; i.lt(numStrats); i = i.plus(BigInt.fromI32(1))) {
+      const stratAddress = vaultContract.withdrawalQueue(i);
+      const strategy = Strategy.load(stratAddress.toHexString());
+
+      let latestReport: StrategyReport | null,
+        previousReport: StrategyReport | null,
+        latestReportResult: StrategyReportResult | null;
+      if (strategy && strategy.latestReport &&
+        (latestReport = StrategyReport.load(strategy.latestReport)) &&
+        latestReport.results &&
+        (latestReportResult = StrategyReportResult.load(latestReport.results)) &&
+        latestReportResult.previousReport &&
+        (previousReport = StrategyReport.load(latestReportResult.previousReport))
+      ) {
+        // use allocBPS from previous report since latestReportResults' APR
+        // was calculated using the previous report's allocation
+        weightedAverageNumerator = weightedAverageNumerator.plus(
+          latestReportResult.apr.times(previousReport.allocBPS)
+        );
+      }
     }
+
+    const weightedAverageAPR = weightedAverageNumerator.div(BPS_UNIT);
+    const pricePerFullShare = vaultContract.getPricePerFullShare();
+    vaultEntity.apr = weightedAverageAPR;
+    vaultEntity.pricePerFullShare = pricePerFullShare;
+    vaultEntity.lastUpdated = timestamp;
+    createVaultAPRReport(vaultAddress, weightedAverageAPR, pricePerFullShare, timestamp);
+    vaultEntity.save();
   }
 }
 
@@ -273,37 +288,6 @@ export function buildIdFromEvent(event: ethereum.Event): string {
 
 export function getTimestampFromBlock(block: ethereum.Block): BigInt {
   return block.timestamp;
-}
-
-function checkIfTimePastXSeconds(
-  startTimestamp: BigInt,
-  endTimestamp: BigInt,
-  milestone: BigInt
-): boolean {
-  const duration = endTimestamp.minus(startTimestamp);
-  log.info("Duration = {} : MILESTONE = {}", [duration.toString(), milestone.toString()]);
-  if (duration.gt(milestone)) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-function calculateAPRUsingPPFullShare(
-  previousPPFullShare: BigInt,
-  currentPPFullShare: BigInt,
-  previousTimestamp: BigInt,
-  currentTimestamp: BigInt
-): BigInt {
-  // numerator = pnl * one year * unit multiplier
-  // denominator = duration * principal
-  const sharePriceChange = currentPPFullShare.minus(previousPPFullShare);
-  const duration = currentTimestamp.minus(previousTimestamp);
-  const numerator = sharePriceChange.times(BIGINT_SEC_PER_YEAR).times(BPS_UNIT);
-  const denominator = previousPPFullShare.times(duration);
-  const apr = numerator.div(denominator);
-
-  return apr;
 }
 
 function createVaultAPRReport(
