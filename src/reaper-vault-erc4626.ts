@@ -220,17 +220,22 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
         previousReport: StrategyReport | null,
         latestReportResult: StrategyReportResult | null;
       if (strategy && strategy.latestReport &&
-        (latestReport = StrategyReport.load(strategy.latestReport)) &&
+        (latestReport = StrategyReport.load(strategy.latestReport!)) &&
         latestReport.results &&
-        (latestReportResult = StrategyReportResult.load(latestReport.results)) &&
+        (latestReportResult = StrategyReportResult.load(latestReport.results!)) &&
         latestReportResult.previousReport &&
         (previousReport = StrategyReport.load(latestReportResult.previousReport))
       ) {
         // use allocBPS from previous report since latestReportResults' APR
         // was calculated using the previous report's allocation
-        weightedAverageNumerator = weightedAverageNumerator.plus(
-          latestReportResult.apr.times(previousReport.allocBPS)
-        );
+
+        // using previous report's allocBPS may still be positive from a long time ago even though it's 0 now
+        // check to make sure it's still an active strategy first
+        if (latestReport.allocBPS.gt(ZERO)) {
+          weightedAverageNumerator = weightedAverageNumerator.plus(
+            latestReportResult.apr.times(previousReport.allocBPS)
+          );
+        }
       }
     }
 
