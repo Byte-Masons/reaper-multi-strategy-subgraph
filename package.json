@@ -16,7 +16,8 @@
     "build-arbitrum": "graph build --network arbitrum-one",
     "deploy-optimism": "graph build --network optimism && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-optimism --network optimism",
     "deploy-fantom": "graph build --network fantom && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-fantom --network fantom",
-    "deploy-arbitrum": "graph build --network arbitrum-one && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-arbitrum --network arbitrum-one"
+    "deploy-arbitrum": "graph build --network arbitrum-one && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-arbitrum --network arbitrum-one",
+    "deploy-test": "graph build --network optimism && graph deploy --product hosted-service kquach12/vault-testing-op --network optimism"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.30.0",

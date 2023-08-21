@@ -214,28 +214,22 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
     let weightedAverageNumerator = ZERO;
     for (let i = ZERO; i.lt(numStrats); i = i.plus(BigInt.fromI32(1))) {
       const stratAddress = vaultContract.withdrawalQueue(i);
-      const strategy = Strategy.load(stratAddress.toHexString());
+      const currentAllocBPS = vaultContract.strategies(stratAddress).getAllocBPS();
+      if (currentAllocBPS.equals(ZERO)) {
+        continue;
+      }
 
+      const strategy = Strategy.load(stratAddress.toHexString());
       let latestReport: StrategyReport | null,
-        previousReport: StrategyReport | null,
         latestReportResult: StrategyReportResult | null;
       if (strategy && strategy.latestReport &&
         (latestReport = StrategyReport.load(strategy.latestReport!)) &&
         latestReport.results &&
-        (latestReportResult = StrategyReportResult.load(latestReport.results!)) &&
-        latestReportResult.previousReport &&
-        (previousReport = StrategyReport.load(latestReportResult.previousReport))
+        (latestReportResult = StrategyReportResult.load(latestReport.results!))
       ) {
-        // use allocBPS from previous report since latestReportResults' APR
-        // was calculated using the previous report's allocation
-
-        // using previous report's allocBPS may still be positive from a long time ago even though it's 0 now
-        // check to make sure it's still an active strategy first
-        if (latestReport.allocBPS.gt(ZERO)) {
-          weightedAverageNumerator = weightedAverageNumerator.plus(
-            latestReportResult.apr.times(previousReport.allocBPS)
-          );
-        }
+        weightedAverageNumerator = weightedAverageNumerator.plus(
+          latestReportResult.apr.times(currentAllocBPS)
+        );
       }
     }
 
