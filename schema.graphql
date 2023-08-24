@@ -4,9 +4,22 @@ type Vault @entity {
   "Strategies for this Vault"
   strategies: [Strategy!]! @derivedFrom(field: "vault")
   "Annual Percentage Rate for the vault."
-  apr: BigDecimal
+  apr: BigInt
   "The nr of strategies currently in use"
   nrOfStrategies: BigInt!
+  lastUpdated: BigInt!
+  "One-to-Many relationship with VaultAPRReport"
+  reports: [VaultAPRReport!]! @derivedFrom(field: "vault")
+  "Curent price per full share at the time of this report"
+  pricePerFullShare: BigInt!
+}
+
+type VaultAPRReport @entity {
+  id: ID!
+  vault: Vault!
+  apr: BigInt
+  pricePerFullShare: BigInt!
+  timestamp: BigInt!
 }
 
 type Strategy @entity {
@@ -66,17 +79,11 @@ type StrategyReportResult @entity {
   startTimestamp: BigInt!
   endTimestamp: BigInt!
   "The duration (in days) from the previous report."
-  duration: BigDecimal!
-  "Duration percentage rate."
-  durationPr: BigDecimal!
+  duration: BigInt!
   "Annual Percentage Rate."
-  apr: BigDecimal!
-  "vault APR Snapshot."
-  vaultAPR: BigDecimal!
+  apr: BigInt!
   "Vault address report is intended for"
   vault: String!
-  "Curent price per full share at the time of this report"
-  pricePerFullShare: BigInt!
 }
 
 type User @entity {

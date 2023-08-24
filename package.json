@@ -2,6 +2,8 @@
   "name": "reaper-multi-strategy-subgraph",
   "license": "UNLICENSED",
   "scripts": {
+    "prepare": "npx husky install",
+    "lint": "npx eslint .",
     "codegen": "graph codegen",
     "build": "graph build",
     "auth": "graph auth --product hosted-service {put token here}",
@@ -14,10 +16,18 @@
     "build-arbitrum": "graph build --network arbitrum-one",
     "deploy-optimism": "graph build --network optimism && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-optimism --network optimism",
     "deploy-fantom": "graph build --network fantom && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-fantom --network fantom",
-    "deploy-arbitrum": "graph build --network arbitrum-one && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-arbitrum --network arbitrum-one"
+    "deploy-arbitrum": "graph build --network arbitrum-one && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-arbitrum --network arbitrum-one",
+    "deploy-test": "graph build --network optimism && graph deploy --product hosted-service kquach12/vault-testing-op --network optimism"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.30.0",
     "@graphprotocol/graph-ts": "0.27.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.4.0",
+    "@typescript-eslint/parser": "^6.4.0",
+    "eslint": "^8.47.0",
+    "husky": "^8.0.3",
+    "typescript": "^5.1.6"
   }
 }
