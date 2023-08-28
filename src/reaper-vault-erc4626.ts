@@ -10,7 +10,13 @@ import {
   ReaperBaseStrategy as StrategyContract,
 } from "../generated/templates/ReaperVaultERC4626/ReaperBaseStrategy";
 import {
-  Vault, Strategy, StrategyReport, StrategyReportResult, User, VaultAPRReport,
+  Vault,
+  Strategy,
+  StrategyReport,
+  StrategyReportResult,
+  User,
+  VaultAPRReport,
+  StrategyReportInVaultAPRReport,
 } from "../generated/schema";
 
 const ZERO = BigInt.zero();
@@ -211,6 +217,7 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
     const numStrats = vaultEntity.nrOfStrategies;
 
     // weightedAverageAPR = [(alloc1 * apr1) + (alloc2 * apr2)...] / BPS_UNIT
+    const vaultAPRReportEntity = createVaultAPRReport(vaultAddress, timestamp);
     let weightedAverageNumerator = ZERO;
     for (let i = ZERO; i.lt(numStrats); i = i.plus(BigInt.fromI32(1))) {
       const stratAddress = vaultContract.withdrawalQueue(i);
@@ -227,6 +234,7 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
         latestReport.results &&
         (latestReportResult = StrategyReportResult.load(latestReport.results!))
       ) {
+        createStrategyReportInVaultAPRReport(vaultAPRReportEntity.id, latestReport.id);
         weightedAverageNumerator = weightedAverageNumerator.plus(
           latestReportResult.apr.times(currentAllocBPS)
         );
@@ -238,8 +246,12 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
     vaultEntity.apr = weightedAverageAPR;
     vaultEntity.pricePerFullShare = pricePerFullShare;
     vaultEntity.lastUpdated = timestamp;
-    createVaultAPRReport(vaultAddress, weightedAverageAPR, pricePerFullShare, timestamp);
+
+    vaultAPRReportEntity.apr = weightedAverageAPR;
+    vaultAPRReportEntity.pricePerFullShare = pricePerFullShare;
+
     vaultEntity.save();
+    vaultAPRReportEntity.save();
   }
 }
 
@@ -291,16 +303,26 @@ export function getTimestampFromBlock(block: ethereum.Block): BigInt {
 
 function createVaultAPRReport(
   vaultAddress: string,
-  apr: BigInt,
-  pricePerFullShare: BigInt,
   timestamp: BigInt
-): void {
+): VaultAPRReport {
   const id = `${vaultAddress}-${timestamp}`;
   const vaultAPRReport = new VaultAPRReport(id);
   vaultAPRReport.vault = vaultAddress;
-  vaultAPRReport.apr = apr;
-  vaultAPRReport.pricePerFullShare = pricePerFullShare;
+  vaultAPRReport.apr = ZERO;
+  vaultAPRReport.pricePerFullShare = ZERO;
   vaultAPRReport.timestamp = timestamp;
   vaultAPRReport.save();
+  return vaultAPRReport;
+}
+
+function createStrategyReportInVaultAPRReport(
+  vaultAPRReportID: string,
+  strategyReportID: string
+): void {
+  const id = `${vaultAPRReportID}-${strategyReportID}`;
+  const stratReportInVaultAPRReportEntity = new StrategyReportInVaultAPRReport(id);
+  stratReportInVaultAPRReportEntity.vaultAPRReport = vaultAPRReportID;
+  stratReportInVaultAPRReportEntity.strategyReport = strategyReportID;
+  stratReportInVaultAPRReportEntity.save();
   return;
 }

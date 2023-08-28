@@ -10,7 +10,7 @@ type Vault @entity {
   lastUpdated: BigInt!
   "One-to-Many relationship with VaultAPRReport"
   reports: [VaultAPRReport!]! @derivedFrom(field: "vault")
-  "Curent price per full share at the time of this report"
+  "Current price per full share at the time of this report"
   pricePerFullShare: BigInt!
 }
 
@@ -20,6 +20,8 @@ type VaultAPRReport @entity {
   apr: BigInt
   pricePerFullShare: BigInt!
   timestamp: BigInt!
+  "List of strategy reports used to derive APR for this report"
+  strategyReports: [StrategyReportInVaultAPRReport!]! @derivedFrom(field: "vaultAPRReport")
 }
 
 type Strategy @entity {
@@ -56,6 +58,8 @@ type StrategyReport @entity {
   allocationAdded: BigInt!
   "The relative strategy allocation in basis points"
   allocBPS: BigInt!
+  "List of APR reports where this report was used in deriving vault APR"
+  vaultAPRReports: [StrategyReportInVaultAPRReport!]! @derivedFrom(field: "strategyReport")
 
 
   # "Vault state"
@@ -93,4 +97,10 @@ type User @entity {
   totalDeposits: BigInt!
   "User's total withdrawals"
   totalWithdrawals: BigInt!
+}
+
+type StrategyReportInVaultAPRReport @entity {
+  id: ID!
+  strategyReport: StrategyReport!
+  vaultAPRReport: VaultAPRReport!
 }
