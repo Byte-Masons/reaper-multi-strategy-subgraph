@@ -133,6 +133,7 @@ function getOrCreateVault(vaultAddress: Address, timestamp: BigInt): Vault {
     );
     const ppFullShare = vaultContract.getPricePerFullShare();
     vaultEntity.pricePerFullShare = ppFullShare;
+    vaultEntity.totalAllocated = ZERO;
   } else {
     vaultEntity.nrOfStrategies = vaultEntity.nrOfStrategies.plus(BigInt.fromI32(1));
   }
@@ -243,12 +244,15 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
 
     const weightedAverageAPR = weightedAverageNumerator.div(BPS_UNIT);
     const pricePerFullShare = vaultContract.getPricePerFullShare();
+    const totalAllocated = vaultContract.totalAllocated();
     vaultEntity.apr = weightedAverageAPR;
     vaultEntity.pricePerFullShare = pricePerFullShare;
+    vaultEntity.totalAllocated = totalAllocated;
     vaultEntity.lastUpdated = timestamp;
 
     vaultAPRReportEntity.apr = weightedAverageAPR;
     vaultAPRReportEntity.pricePerFullShare = pricePerFullShare;
+    vaultAPRReportEntity.totalAllocated = totalAllocated;
 
     vaultEntity.save();
     vaultAPRReportEntity.save();
@@ -310,6 +314,7 @@ function createVaultAPRReport(
   vaultAPRReport.vault = vaultAddress;
   vaultAPRReport.apr = ZERO;
   vaultAPRReport.pricePerFullShare = ZERO;
+  vaultAPRReport.totalAllocated = ZERO;
   vaultAPRReport.timestamp = timestamp;
   vaultAPRReport.save();
   return vaultAPRReport;

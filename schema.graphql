@@ -12,6 +12,8 @@ type Vault @entity {
   reports: [VaultAPRReport!]! @derivedFrom(field: "vault")
   "Current price per full share at the time of this report"
   pricePerFullShare: BigInt!
+  "Total amount of tokens allocated to strategies at time of harvest"
+  totalAllocated: BigInt!
 }
 
 type VaultAPRReport @entity {
@@ -19,6 +21,8 @@ type VaultAPRReport @entity {
   vault: Vault!
   apr: BigInt
   pricePerFullShare: BigInt!
+  "Total amount of tokens allocated to strategies at time of harvest"
+  totalAllocated: BigInt!
   timestamp: BigInt!
   "List of strategy reports used to derive APR for this report"
   strategyReports: [StrategyReportInVaultAPRReport!]! @derivedFrom(field: "vaultAPRReport")
