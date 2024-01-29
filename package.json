@@ -14,9 +14,11 @@
     "build-optimism": "graph build --network optimism",
     "build-fantom": "graph build --network fantom",
     "build-arbitrum": "graph build --network arbitrum-one",
+    "build-mantle": "graph build --network mantle",
     "deploy-optimism": "graph build --network optimism && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-optimism --network optimism",
     "deploy-fantom": "graph build --network fantom && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-fantom --network fantom",
     "deploy-arbitrum": "graph build --network arbitrum-one && graph deploy --product hosted-service byte-masons/multi-strategy-vaults-arbitrum --network arbitrum-one",
+    "deploy-mantle": "graph build --network mantle && graph deploy Multi-Strategy-Vaults-Mantle --node https://subgraph-api.mantle.xyz/deploy --ipfs https://subgraph-api.mantle.xyz/ipfs",
     "deploy-test": "graph build --network optimism && graph deploy --product hosted-service kquach12/vault-testing-op --network optimism"
   },
   "dependencies": {
