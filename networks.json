@@ -16,7 +16,7 @@
     },
     "mantle": {
         "ReaperVaultERC4626": {
-            "startBlock": 30818853
+            "startBlock": 50000000
         }
     }
 }

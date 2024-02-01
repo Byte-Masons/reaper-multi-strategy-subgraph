@@ -9,7 +9,7 @@ dataSources:
     network: mantle
     source:
       abi: ReaperVaultERC4626
-      startBlock: 30818853
+      startBlock: 50000000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
