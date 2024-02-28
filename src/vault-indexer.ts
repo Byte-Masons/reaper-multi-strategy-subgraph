@@ -11,6 +11,7 @@ const addStrategyAddresses: Address[] = [
   Address.fromString("0x1E71AEE6081f62053123140aacC7a06021D77348"), // bongo
   Address.fromString("0xe00691e65cd4400c84a174a4c56f20ba43dffd89"), // ethos deployer
   Address.fromString("0x4c3490df15edfa178333445ce568ec6d99b5d71c"), // eidolon
+  Address.fromString("0xF29dA3595351dBFd0D647857C46F8D63Fc2e68C5"), // kamil
   // ... add other addresses that may call addStrategy on a new or existing vault 
 ];
 

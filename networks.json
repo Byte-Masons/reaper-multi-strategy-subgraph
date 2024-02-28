@@ -18,5 +18,10 @@
         "ReaperVaultERC4626": {
             "startBlock": 50000000
         }
+    },
+    "bsc": {
+        "ReaperVaultERC4626": {
+            "startBlock": 36450000
+        }
     }
 }

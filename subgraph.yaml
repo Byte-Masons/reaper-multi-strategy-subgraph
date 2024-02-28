@@ -6,10 +6,10 @@ schema:
 dataSources:
   - kind: ethereum/contract
     name: ReaperVaultERC4626
-    network: mantle
+    network: bsc
     source:
       abi: ReaperVaultERC4626
-      startBlock: 50000000
+      startBlock: 36450000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -26,7 +26,7 @@ dataSources:
 templates:
   - kind: ethereum/contract
     name: ReaperVaultERC4626
-    network: mantle
+    network: bsc
     source:
       abi: ReaperVaultERC4626
     mapping:
