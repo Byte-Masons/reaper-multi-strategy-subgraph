@@ -14,6 +14,8 @@ type Vault @entity {
   pricePerFullShare: BigInt!
   "Total amount of tokens allocated to strategies at time of harvest"
   totalAllocated: BigInt!
+  "Total amount of tokens ever deposited into vault"
+  totalDepositsAllTime: BigInt!
 }
 
 type VaultAPRReport @entity {

@@ -134,6 +134,7 @@ function getOrCreateVault(vaultAddress: Address, timestamp: BigInt): Vault {
     const ppFullShare = vaultContract.getPricePerFullShare();
     vaultEntity.pricePerFullShare = ppFullShare;
     vaultEntity.totalAllocated = ZERO;
+    vaultEntity.totalDepositsAllTime = ZERO;
   } else {
     vaultEntity.nrOfStrategies = vaultEntity.nrOfStrategies.plus(BigInt.fromI32(1));
   }
@@ -262,10 +263,15 @@ export function updateVaultAPR(vaultAddress: string, timestamp: BigInt): void {
 export function handleDeposit(event: Deposit): void {
   log.info("handleDeposit called", []);
   const user = getOrCreateUser(event.params.sender, event.address);
+  const vault = Vault.load(event.address.toHexString());
   if (user) {
     log.info("handleDeposit called - user {}, amount {}", [user.id, event.params.assets.toString()]);
     user.totalDeposits = user.totalDeposits.plus(event.params.assets);
     user.save();
+  }
+  if (vault) {
+    vault.totalDepositsAllTime = vault.totalDepositsAllTime.plus(event.params.assets);
+    vault.save();
   }
 }
 
